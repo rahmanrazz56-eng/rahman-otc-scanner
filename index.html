@@ -1,38 +1,189 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>RAHMAN OTC SCANNER</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAHMAN OTC BEAST SCANNER</title>
 <style>
-body{
-background:#05070f;
-color:white;
-font-family:Arial,sans-serif;
-text-align:center;
-padding-top:100px;
-}
-.box{
-background:#111827;
-padding:20px;
-border-radius:15px;
-width:350px;
-margin:auto;
-}
+body{margin:0;background:#05070f;color:white;font-family:Arial}
+.container{max-width:900px;margin:auto;padding:15px}
+.header{background:#0b0f1e;border:1px solid #1d2548;border-radius:18px;padding:16px;margin-bottom:12px}
+h1{margin:0;color:#00ff88;font-size:22px}
+.sub{color:#7d86b0;font-size:12px;margin-top:5px}
+.timer{font-size:38px;text-align:center;color:#f0b429;font-weight:bold;margin:15px}
+button{width:100%;padding:12px;border:0;border-radius:12px;background:#4a7dff;color:white;font-weight:bold}
+.card{background:#101735;border:1px solid #1d2548;border-radius:22px;padding:18px;margin:14px 0}
+.top{display:flex;justify-content:space-between;align-items:center}
+.flags{font-size:34px}
+.pair{font-size:30px;font-weight:bold}
+.otc{font-size:16px;color:#7d86b0}
+.full{color:#7d86b0;font-size:14px}
+.price{font-size:28px;font-family:monospace;font-weight:bold}
+.chart{height:80px;margin:15px 0}
+.signal{font-size:28px;text-align:center;padding:15px;border-radius:16px;font-weight:bold;margin-top:12px}
+.call{color:#00ff88;border:1px solid #00ff88;background:rgba(0,255,136,.12)}
+.put{color:#ff2d5c;border:1px solid #ff2d5c;background:rgba(255,45,92,.12)}
+.wait{color:#f0b429;border:1px solid #f0b429;background:rgba(240,180,41,.12)}
+.ind{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
+.ind div{background:#080c18;border:1px solid #1d2548;border-radius:10px;padding:8px;text-align:center;font-size:12px}
+.note,.status{color:#8b95c9;font-size:12px;line-height:1.5;margin-top:10px}
 </style>
 </head>
 <body>
+<div class="container">
+  <div class="header">
+    <h1>⚡ RAHMAN OTC BEAST SCANNER</h1>
+    <div class="sub">Next Candle Signal • M1 • 15s Before Close</div>
+  </div>
 
-<div class="box">
-<h1>⚡ RAHMAN OTC SCANNER</h1>
-<p>Dashboard Working Successfully</p>
-<h2 id="time"></h2>
+  <div class="timer" id="timer">--</div>
+  <button onclick="scanNow()">⚡ SCAN NOW</button>
+  <div class="status" id="status">Waiting...</div>
+  <div id="cards"></div>
+
+  <div class="note">
+    ⚠️ Quotex OTC direct API இல்லை. இது TwelveData forex feed வைத்து OTC-style signal தரும். Demo test பண்ணிட்டு real trade போ.
+  </div>
 </div>
 
 <script>
-setInterval(()=>{
-document.getElementById("time").innerHTML =
-new Date().toLocaleTimeString();
-},1000);
-</script>
+const API_KEY = "f2eb74a168e84757b3bbbc8851569d6b";
 
+const PAIRS=[
+{name:"EUR/USD",symbol:"EUR/USD",flags:"🇪🇺🇺🇸",full:"Euro / US Dollar",digits:5},
+{name:"GBP/USD",symbol:"GBP/USD",flags:"🇬🇧🇺🇸",full:"Pound / US Dollar",digits:5},
+{name:"USD/JPY",symbol:"USD/JPY",flags:"🇺🇸🇯🇵",full:"US Dollar / Japanese Yen",digits:3},
+{name:"AUD/USD",symbol:"AUD/USD",flags:"🇦🇺🇺🇸",full:"Australian Dollar / US Dollar",digits:5},
+{name:"USD/CHF",symbol:"USD/CHF",flags:"🇺🇸🇨🇭",full:"US Dollar / Swiss Franc",digits:5}
+];
+
+let lastSignalMinute=-1;
+
+function ema(v,p){
+ if(v.length<p)return v[v.length-1];
+ let k=2/(p+1),e=v.slice(0,p).reduce((a,b)=>a+b,0)/p;
+ for(let i=p;i<v.length;i++)e=v[i]*k+e*(1-k);
+ return e;
+}
+
+function rsi(c,p=14){
+ let g=0,l=0;
+ for(let i=c.length-p;i<c.length;i++){
+  let d=c[i]-c[i-1];
+  if(d>0)g+=d;else l-=d;
+ }
+ let rs=g/(l||0.00001);
+ return 100-(100/(1+rs));
+}
+
+function boll(c){
+ let p=c.slice(-20);
+ let m=p.reduce((a,b)=>a+b,0)/p.length;
+ let sd=Math.sqrt(p.reduce((a,b)=>a+Math.pow(b-m,2),0)/p.length);
+ return{mid:m,upper:m+2*sd,lower:m-2*sd};
+}
+
+function stoch(cs){
+ let p=cs.slice(-14);
+ let h=Math.max(...p.map(x=>x.high));
+ let l=Math.min(...p.map(x=>x.low));
+ let cl=cs[cs.length-1].close;
+ return ((cl-l)/(h-l||0.00001))*100;
+}
+
+function sideways(cs){
+ let r=cs.slice(-10);
+ let range=r.reduce((a,c)=>a+(c.high-c.low),0)/r.length;
+ let price=r[r.length-1].close;
+ return range/price<0.00035;
+}
+
+function analyze(cs){
+ let close=cs.map(c=>c.close);
+ let last=cs[cs.length-1],prev=cs[cs.length-2];
+ let e9=ema(close,9),e21=ema(close,21),e50=ema(close,50);
+ let rr=rsi(close),bb=boll(close),st=stoch(cs),macd=ema(close,12)-ema(close,26);
+ let call=0,put=0,side=sideways(cs);
+
+ if(e9>e21&&e21>e50)call+=2;
+ if(e9<e21&&e21<e50)put+=2;
+ if(rr>52&&rr<70)call++;
+ if(rr<48&&rr>30)put++;
+ if(rr<30)call++;
+ if(rr>70)put++;
+ if(macd>0)call++;else put++;
+ if(last.close>bb.mid)call++;
+ if(last.close<bb.mid)put++;
+ if(st>55&&st<85)call++;
+ if(st<45&&st>15)put++;
+ if(last.close>last.open)call++;
+ if(last.close<last.open)put++;
+
+ let sig="WAIT";
+ if(!side){
+  if(call>=5&&call>put)sig="CALL";
+  else if(put>=5&&put>call)sig="PUT";
+ }
+ let best=Math.max(call,put);
+ let conf=sig==="WAIT"?Math.min(62,45+best*3):Math.min(95,52+best*7);
+
+ return{sig,price:last.close,prev:prev.close,rsi:rr.toFixed(1),st:st.toFixed(1),macd:macd.toFixed(5),ema:e9>e21?"UP":"DOWN",bb:(((last.close-bb.lower)/(bb.upper-bb.lower||1))*100).toFixed(0),score:best,conf:conf.toFixed(1),side};
+}
+
+async function fetchCandles(symbol){
+ if(API_KEY.includes("PASTE_"))throw new Error("API key add பண்ணு");
+ let url=https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY};
+ let res=await fetch(url);
+ let j=await res.json();
+ if(!j.values)throw new Error(j.message||"No data");
+ return j.values.reverse().map(v=>({open:+v.open,high:+v.high,low:+v.low,close:+v.close}));
+}
+
+function cardError(p,msg){
+ return <div class="card">
+ <div class="top"><div><div class="flags">${p.flags}</div><div class="pair">${p.name} <span class="otc">OTC</span></div><div class="full">${p.full}</div></div></div>
+ <div class="signal wait">DATA ERROR</div><div class="status">${msg}</div></div>;
+}
+
+async function scanNow(){
+ document.getElementById("status").innerText="Scanning...";
+ let html="";
+ for(let p of PAIRS){
+  try{
+   let cs=await fetchCandles(p.symbol);
+   let a=analyze(cs);
+   let cls=a.sig==="CALL"?"call":a.sig==="PUT"?"put":"wait";
+   let word=a.sig==="CALL"?"🟢 CALL":a.sig==="PUT"?"🔴 PUT":"⚪ WAIT";
+   let ch=((a.price-a.prev)/a.prev*100).toFixed(3);
+
+   html+=<div class="card">
+    <div class="top">
+     <div><div class="flags">${p.flags}</div><div class="pair">${p.name} <span class="otc">OTC</span></div><div class="full">${p.full}</div></div>
+     <div><div class="price">${a.price.toFixed(p.digits)}</div><div class="status">${ch}%</div></div>
+    </div>
+    <div class="signal ${cls}">${word}<br><span style="font-size:13px">${a.conf}% conf</span></div>
+    <div class="ind">
+     <div>EMA<br>${a.ema}</div><div>RSI<br>${a.rsi}</div><div>MACD<br>${a.macd}</div><div>BB<br>${a.bb}%</div>
+     <div>STOCH<br>${a.st}</div><div>SCORE<br>${a.score}/7</div><div>TF<br>M1</div><div>MODE<br>${a.side?"WAIT":"TREND"}</div>
+    </div>
+   </div>;
+  }catch(e){html+=cardError(p,e.message);}
+  document.getElementById("cards").innerHTML=html;
+  await new Promise(r=>setTimeout(r,500));
+ }
+ document.getElementById("status").innerText="Last scan: "+new Date().toLocaleTimeString();
+}
+
+setInterval(()=>{
+ let now=new Date();
+ let remain=60-now.getSeconds();
+ document.getElementById("timer").innerText=remain+"s";
+ if(remain<=15&&lastSignalMinute!==now.getMinutes()){
+  lastSignalMinute=now.getMinutes();
+  scanNow();
+ }
+},1000);
+
+scanNow();
+</script>
 </body>
 </html>
