@@ -131,7 +131,7 @@ function analyze(cs){
 
 async function fetchCandles(symbol){
  if(API_KEY.includes("PASTE_"))throw new Error("API key add பண்ணு");
- let url=https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY};
+ https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY}
  let res=await fetch(url);
  let j=await res.json();
  if(!j.values)throw new Error(j.message||"No data");
