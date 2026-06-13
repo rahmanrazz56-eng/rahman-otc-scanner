@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>RAHMAN OTC SCANNER</title>
+<style>
+body{
+background:#05070f;
+color:white;
+font-family:Arial;
+text-align:center;
+padding-top:100px;
+}
+.box{
+background:#111827;
+padding:20px;
+border-radius:15px;
+width:350px;
+margin:auto;
+}
+</style>
+</head>
+<body>
+
+<div class="box">
+<h1>⚡ RAHMAN OTC SCANNER</h1>
+<p>Dashboard Working Successfully</p>
+<h2 id="time"></h2>
+</div>
+
+<script>
+setInterval(()=>{
+document.getElementById("time").innerHTML =
+new Date().toLocaleTimeString();
+},1000);
+</script>
+
+</body>
+</html>
