@@ -114,7 +114,7 @@ function analyze(cs){
   if(call>=5&&call>put)sig="CALL";
   else if(put>=5&&put>call)sig="PUT";
  }
-
+https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY}
  let best=Math.max(call,put);
  let conf=sig==="WAIT"?Math.min(62,45+best*3):Math.min(95,52+best*7);
  let bbpos=((last.close-bb.lower)/(bb.upper-bb.lower+0.00001)*100).toFixed(0);
@@ -124,7 +124,7 @@ function analyze(cs){
 
 async function fetchCandles(symbol){
  if(API_KEY.includes("YOUR_")) throw new Error("API key add பண்ணு");
- let url=https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY};
+
  let res=await fetch(url);
  let j=await res.json();
  if(!j.values) throw new Error(j.message || "No data");
