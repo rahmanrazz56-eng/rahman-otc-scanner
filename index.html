@@ -125,7 +125,7 @@ function analyze(cs){
 
 async function fetchCandles(symbol){
  if(API_KEY.includes("YOUR_")) throw new Error("API key add பண்ணு");
- let url=https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY};
+ https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1min&outputsize=80&apikey=${API_KEY}
  let res=await fetch(url);
  let j=await res.json();
  if(!j.values) throw new Error(j.message || "No data");
@@ -134,8 +134,17 @@ async function fetchCandles(symbol){
 
 function cardError(p,msg){
  return <div class="card">
- <div class="top"><div><div class="flags">${p.flags}</div><div class="pair">${p.name} <span class="otc">OTC</span></div><div class="full">${p.full}</div></div></div>
- <div class="signal wait">DATA ERROR</div><div class="status">${msg}</div></div>;
+ <div class="top">
+  <div>
+   <div class="flags">${p.flags}</div>
+   <div class="pair">${p.name} <span class="otc">OTC</span></div>
+   <div class="full">${p.full}</div>
+  </div>
+ </div>
+ <div class="signal wait">DATA ERROR</div>
+ <div class="status">${msg}</div>
+ </div>;
+  
 }
 
 async function scanNow(){
